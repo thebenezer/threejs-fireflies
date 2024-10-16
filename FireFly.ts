@@ -13,14 +13,31 @@ import {
 } from 'three';
 
 import Gl from '@/Gl';
-
 import FireFlyShader from '@/shaders/FireFlyShader';
 
+/**
+ * Auto-suggestion Help:
+ * This FireFlies class generates firefly particles using instanced rendering.
+ * You can customize the number of firefly groups, how many fireflies per group,
+ * their radius, and a noise texture for additional effects.
+ * 
+ * Usage:
+ * const fireflies = new FireFlies(scene, {
+ *   groupCount: 5,
+ *   firefliesPerGroup: 100,
+ *   groupRadius: 10,
+ *   noiseTexture: yourNoiseTexture
+ * });
+ * 
+ * In your render loop, call the update method:
+ * fireflies.update(deltaTime);
+ */
+
 type Props = {
-	groupCount: number;
-	firefliesPerGroup: number;
-	groupRadius: number;
-	noiseTexture: Texture | null;
+	groupCount: number; // Number of groups of fireflies
+	firefliesPerGroup: number; // Number of fireflies in each group
+	groupRadius: number; // Radius of each group
+	noiseTexture: Texture | null; // Optional texture for noise effects
 };
 
 const defaultProps = {
@@ -31,27 +48,34 @@ const defaultProps = {
 };
 
 export class FireFlies {
-	private scene: Scene;
-	private fireflyParticles: InstancedMesh;
-	private fireflyCount: number;
+	private gl: Gl; // Instance of the Gl class for WebGL context
+	private scene: Scene; // The Three.js scene to which the fireflies will be added
+	private fireflyParticles: InstancedMesh; // Instanced mesh for rendering fireflies
+	private fireflyCount: number; // Total number of fireflies
 	private Uniforms = {
-		uTime: { value: 0 },
-		uFireFlyRadius: { value: 0.1 },
-		uPlayerPosition: { value: new Vector3(0, 0, 0) },
-		uNoiseTexture: { value: new Texture() },
-		uColor: { value: new Color('#ffffff') }
+		uTime: { value: 0 }, // Uniform for time variable to animate fireflies
+		uFireFlyRadius: { value: 0.1 }, // Uniform for firefly radius
+		uPlayerPosition: { value: new Vector3(0, 0, 0) }, // Uniform for player position
+		uNoiseTexture: { value: new Texture() }, // Uniform for noise texture
+		uColor: { value: new Color('#ffffff') } // Uniform for firefly color
 	};
-	private groupCount: number;
-	private firefliesPerGroup: number;
-	private groupRadius: number;
+	private groupCount: number; // Number of groups of fireflies
+	private firefliesPerGroup: number; // Number of fireflies in each group
+	private groupRadius: number; // Radius for grouping fireflies
 
-	constructor(_scene, props: Props = defaultProps) {
-		this.scene = _scene;
-		this.groupCount = props.groupCount;
-		this.groupRadius = props.groupRadius;
-		this.firefliesPerGroup = props.firefliesPerGroup;
+	/**
+	 * Constructs the FireFlies instance.
+	 * @param _scene The Three.js scene where the fireflies will be rendered.
+	 * @param props Configuration options for the fireflies.
+	 */
+	constructor(_scene: Scene, props: Props = defaultProps) {
+		this.gl = Gl.getInstance(); // Get the WebGL context
+		this.scene = _scene; // Assign the scene
+		this.groupCount = props.groupCount; // Set group count
+		this.groupRadius = props.groupRadius; // Set group radius
+		this.firefliesPerGroup = props.firefliesPerGroup; // Set fireflies per group
 		if (props.noiseTexture) {
-			this.Uniforms.uNoiseTexture.value = props.noiseTexture;
+			this.Uniforms.uNoiseTexture.value = props.noiseTexture; // Assign noise texture if provided
 		}
 
 		// Create a firefly geometry
@@ -67,65 +91,12 @@ export class FireFlies {
 				uNoiseTexture: this.Uniforms.uNoiseTexture,
 				uColor: this.Uniforms.uColor
 			},
-			vertexShader: `
-   				uniform float uTime;
-				varying vec2 vUv;
-				varying float vOffset;
-				
-				void main() {
-				
-				    // Apply noise to the particle motion
-				    float displacementX = sin(uTime + float(gl_InstanceID) * 0.10) * 0.5;
-				    float displacementY = sin(uTime + float(gl_InstanceID) * 0.15) * 0.5;
-				    float displacementZ = sin(uTime + float(gl_InstanceID) * 0.13) * 0.5;
-				
-				    // make the object face the camera like a pointMaterial.
-				    float rotation = 0.0;
-				    vec2 rotatedPosition = vec2(cos(rotation) * position.x - sin(rotation) * position.y, sin(rotation) * position.x + cos(rotation) * position.y);
-				    vec4 finalPosition = viewMatrix * modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-				    finalPosition.xy += rotatedPosition;
-				
-				    // make the particles move
-				    finalPosition.x += displacementX;
-				    finalPosition.y += displacementY;
-				    finalPosition.z += displacementZ;
-				
-				    gl_Position = projectionMatrix * finalPosition;
-				
-				    vec4 modelPosition = modelMatrix * instanceMatrix * vec4(position, 1.0);
-				
-				    vUv = uv;
-				    vOffset = float(gl_InstanceID);
-				}`,
-			fragmentShader: `
-				varying vec2 vUv;
-				uniform float uTime;
-				uniform float uFireFlyRadius;
-				uniform vec3 uColor;
-				varying float vOffset;
-				
-				void main() {
-				    float distance = length(vUv - 0.5);
-				    float glow = smoothstep(0.50, uFireFlyRadius, distance);
-				    float disk = smoothstep(uFireFlyRadius, uFireFlyRadius - 0.01, distance);
-				
-				    // Add a flashing effect using the time uniform
-				    float flash = sin(uTime * 3.0 + vOffset * 0.12) * 0.5 + 0.5; // Adjust the frequency and amplitude as desired
-				    float alpha = clamp((glow + disk) * flash, 0.0, 1.0);
-				
-				    vec3 glowColor = uColor * 3. * flash;
-				    vec3 fireFlyColor = uColor * 3.;
-				
-				    vec3 finalColor = mix(glowColor, fireFlyColor, disk);
-				
-				    finalColor = finalColor;
-				
-				    gl_FragColor = vec4(finalColor, alpha);
-				}`
+			vertexShader: FireFlyShader.vertex,
+			fragmentShader: FireFlyShader.fragment
 		});
 
 		// Create a firefly object using instanced rendering
-		this.fireflyCount = this.groupCount * this.firefliesPerGroup;
+		this.fireflyCount = this.groupCount * this.firefliesPerGroup; // Calculate total firefly count
 		this.fireflyParticles = new InstancedMesh(
 			fireflyGeometry,
 			fireflyMaterial,
@@ -134,20 +105,23 @@ export class FireFlies {
 
 		// Set initial positions for the fireflies
 		this.setInitialPositions(this.groupCount, this.firefliesPerGroup);
-		this.scene.add(this.fireflyParticles);
-
-		this.setupEventListeners();
+		this.scene.add(this.fireflyParticles); // Add fireflies to the scene
 	}
 
+	/**
+	 * Sets the initial positions of the fireflies in their groups.
+	 * @param groupCount The number of groups of fireflies.
+	 * @param firefliesPerGroup The number of fireflies in each group.
+	 */
 	setInitialPositions(groupCount: number, firefliesPerGroup: number) {
 		this.fireflyParticles.instanceMatrix.setUsage(DynamicDrawUsage); // Set usage to DynamicDraw
 
-		const position = new Vector3();
-		const matrix = new Matrix4();
+		const position = new Vector3(); // Vector to hold position
+		const matrix = new Matrix4(); // Matrix to transform each firefly
 
 		for (let i = 0; i < groupCount; i++) {
-			// Calculate a random center position for each group within a range
-			const groupCenter = new Vector3(0, 0, 0);
+			// Calculate a random center position for each group
+			const groupCenter = new Vector3(0, 0, 0); // Can be modified for dynamic positioning
 
 			// Set positions for fireflies within the group
 			for (let j = 0; j < firefliesPerGroup; j++) {
@@ -167,44 +141,28 @@ export class FireFlies {
 				this.fireflyParticles.setMatrixAt(index, matrix);
 			}
 		}
-		this.fireflyParticles.renderOrder = 1;
-		this.fireflyParticles.instanceMatrix.needsUpdate = true;
+		this.fireflyParticles.renderOrder = 1; // Set render order to ensure proper layering
+		this.fireflyParticles.instanceMatrix.needsUpdate = true; // Mark the instance matrix for update
 	}
 
-  // call this in your render loop
-	update() {
-			this.Uniforms.uTime.value += this.gl.delta;
+	/**
+	 * Updates the uniforms each frame.
+	 * @param uTime The elapsed time since the last frame.
+	 */
+	update(uTime: number) {
+		this.Uniforms.uTime.value += uTime; // Increment time uniform for animations
 	}
 
-	private setupEventListeners() {
-		const colorPicker = document.querySelectorAll('.color-picker');
-		const color1 = document.getElementById('color-picker-1');
-		const color2 = document.getElementById('color-picker-2');
-		const color3 = document.getElementById('color-picker-3');
-
-		color1?.addEventListener('click', (e) => {
-			colorPicker.forEach((picker) => picker.classList.remove('active'));
-			color1?.classList.add('active');
-			this.Uniforms.uColor.value = new Color('#41f2dd');
-		});
-		color2?.addEventListener('click', (e) => {
-			colorPicker.forEach((picker) => picker.classList.remove('active'));
-			color2?.classList.add('active');
-			this.Uniforms.uColor.value = new Color('#c6f241');
-		});
-		color3?.addEventListener('click', (e) => {
-			colorPicker.forEach((picker) => picker.classList.remove('active'));
-			color3?.classList.add('active');
-			this.Uniforms.uColor.value = new Color('#f28e41');
-		});
-	}
-
+	/**
+	 * Generates a random number based on a Gaussian distribution.
+	 * @returns A random number from the Gaussian distribution.
+	 */
 	private randomGaussian() {
 		let u = 0,
 			v = 0;
 		while (u === 0) u = Math.random(); // Convert [0,1) to (0,1)
 		while (v === 0) v = Math.random();
-		const num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-		return num;
+		const num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v); // Box-Muller transform
+		return num; // Return the random number
 	}
 }
