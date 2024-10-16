@@ -67,8 +67,61 @@ export class FireFlies {
 				uNoiseTexture: this.Uniforms.uNoiseTexture,
 				uColor: this.Uniforms.uColor
 			},
-			vertexShader: FireFlyShader.vertex,
-			fragmentShader: FireFlyShader.fragment
+			vertexShader: `
+   				uniform float uTime;
+				varying vec2 vUv;
+				varying float vOffset;
+				
+				void main() {
+				
+				    // Apply noise to the particle motion
+				    float displacementX = sin(uTime + float(gl_InstanceID) * 0.10) * 0.5;
+				    float displacementY = sin(uTime + float(gl_InstanceID) * 0.15) * 0.5;
+				    float displacementZ = sin(uTime + float(gl_InstanceID) * 0.13) * 0.5;
+				
+				    // make the object face the camera like a pointMaterial.
+				    float rotation = 0.0;
+				    vec2 rotatedPosition = vec2(cos(rotation) * position.x - sin(rotation) * position.y, sin(rotation) * position.x + cos(rotation) * position.y);
+				    vec4 finalPosition = viewMatrix * modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+				    finalPosition.xy += rotatedPosition;
+				
+				    // make the particles move
+				    finalPosition.x += displacementX;
+				    finalPosition.y += displacementY;
+				    finalPosition.z += displacementZ;
+				
+				    gl_Position = projectionMatrix * finalPosition;
+				
+				    vec4 modelPosition = modelMatrix * instanceMatrix * vec4(position, 1.0);
+				
+				    vUv = uv;
+				    vOffset = float(gl_InstanceID);
+				}`,
+			fragmentShader: `
+				varying vec2 vUv;
+				uniform float uTime;
+				uniform float uFireFlyRadius;
+				uniform vec3 uColor;
+				varying float vOffset;
+				
+				void main() {
+				    float distance = length(vUv - 0.5);
+				    float glow = smoothstep(0.50, uFireFlyRadius, distance);
+				    float disk = smoothstep(uFireFlyRadius, uFireFlyRadius - 0.01, distance);
+				
+				    // Add a flashing effect using the time uniform
+				    float flash = sin(uTime * 3.0 + vOffset * 0.12) * 0.5 + 0.5; // Adjust the frequency and amplitude as desired
+				    float alpha = clamp((glow + disk) * flash, 0.0, 1.0);
+				
+				    vec3 glowColor = uColor * 3. * flash;
+				    vec3 fireFlyColor = uColor * 3.;
+				
+				    vec3 finalColor = mix(glowColor, fireFlyColor, disk);
+				
+				    finalColor = finalColor;
+				
+				    gl_FragColor = vec4(finalColor, alpha);
+				}`
 		});
 
 		// Create a firefly object using instanced rendering
