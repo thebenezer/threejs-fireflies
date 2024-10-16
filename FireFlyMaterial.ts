@@ -1,21 +1,32 @@
 import { ShaderMaterial, AdditiveBlending, Color } from 'three';
 
 /**
- * FireFlyMaterial class extends Three.js ShaderMaterial
- * for rendering firefly particles with customizable properties.
+ * Options for the FireFlyMaterial constructor.
+ */
+interface FireFlyMaterialOptions {
+	uTime?: number; // Time for animation
+	uFireFlyRadius?: number; // Radius for fireflies
+	uColor?: Color; // Color for fireflies
+}
+
+/**
+ * FireFlyMaterial class rendering firefly particles with customizable properties.
  */
 export class FireFlyMaterial extends ShaderMaterial {
-    constructor() {
-        super({
-            transparent: true,
-            blending: AdditiveBlending,
-            uniforms: {
-                uTime: { value: 0 },
-                uFireFlyRadius: { value: 0.1 },
-                uNoiseTexture: { value: null }, // Updated to allow for texture assignment
-                uColor: { value: new Color('#ffffff') }
-            },
-            vertexShader: `uniform float uTime;
+	constructor(options: FireFlyMaterialOptions = {}) {
+		// Destructure options with default values
+		const { uTime = 0, uFireFlyRadius = 0.1, uColor = new Color('#ffffff') } = options;
+
+		// Call the parent constructor
+		super({
+			transparent: true,
+			blending: AdditiveBlending,
+			uniforms: {
+				uTime: { value: uTime },
+				uFireFlyRadius: { value: uFireFlyRadius },
+				uColor: { value: uColor }
+			},
+			vertexShader: `uniform float uTime;
             varying vec2 vUv;
             varying float vOffset;
 
@@ -45,7 +56,7 @@ export class FireFlyMaterial extends ShaderMaterial {
                 vUv = uv;
                 vOffset = float(gl_InstanceID);
             }`,
-            fragmentShader: `varying vec2 vUv;
+			fragmentShader: `varying vec2 vUv;
             uniform float uTime;
             uniform float uFireFlyRadius;
             uniform vec3 uColor;
@@ -67,38 +78,30 @@ export class FireFlyMaterial extends ShaderMaterial {
 
                 gl_FragColor = vec4(finalColor, alpha);
             }`
-        });
-    }
+		});
+	}
 
-    /**
-     * Update time uniform for animation.
-     * @param {number} time - The time to update the uniform with.
-     */
-    updateTime(time) {
-        this.uniforms.uTime.value = time;
-    }
+	/**
+	 * Update time uniform for animation.
+	 * @param {number} time - The time to update the uniform with.
+	 */
+	updateTime(time: number): void {
+		this.uniforms.uTime.value = time;
+	}
 
-    /**
-     * Set the noise texture uniform.
-     * @param {Texture} texture - The noise texture to use.
-     */
-    setNoiseTexture(texture) {
-        this.uniforms.uNoiseTexture.value = texture;
-    }
+	/**
+	 * Set the firefly color uniform.
+	 * @param {Color} color - The color for the fireflies.
+	 */
+	setColor(color: Color): void {
+		this.uniforms.uColor.value.copy(color);
+	}
 
-    /**
-     * Set the firefly color uniform.
-     * @param {Color} color - The color for the fireflies.
-     */
-    setColor(color) {
-        this.uniforms.uColor.value.copy(color);
-    }
-
-    /**
-     * Set the firefly radius uniform.
-     * @param {number} radius - The radius for fireflies.
-     */
-    setFireFlyRadius(radius) {
-        this.uniforms.uFireFlyRadius.value = radius;
-    }
+	/**
+	 * Set the firefly radius uniform.
+	 * @param {number} radius - The radius for fireflies.
+	 */
+	setFireFlyRadius(radius: number): void {
+		this.uniforms.uFireFlyRadius.value = radius;
+	}
 }
