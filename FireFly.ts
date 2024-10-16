@@ -16,7 +16,6 @@ import Gl from '@/Gl';
 import FireFlyShader from '@/shaders/FireFlyShader';
 
 /**
- * Auto-suggestion Help:
  * This FireFlies class generates firefly particles using instanced rendering.
  * You can customize the number of firefly groups, how many fireflies per group,
  * their radius, and a noise texture for additional effects.
@@ -62,6 +61,7 @@ export class FireFlies {
 	private groupCount: number; // Number of groups of fireflies
 	private firefliesPerGroup: number; // Number of fireflies in each group
 	private groupRadius: number; // Radius for grouping fireflies
+	private fireflyMaterial: FireFlyMaterial;
 
 	/**
 	 * Constructs the FireFlies instance.
@@ -82,24 +82,13 @@ export class FireFlies {
 		const fireflyGeometry = new PlaneGeometry(0.2, 0.2); // Adjust the size of the firefly as desired
 
 		// Create a firefly material
-		const fireflyMaterial = new ShaderMaterial({
-			transparent: true,
-			blending: AdditiveBlending,
-			uniforms: {
-				uTime: this.Uniforms.uTime,
-				uFireFlyRadius: this.Uniforms.uFireFlyRadius,
-				uNoiseTexture: this.Uniforms.uNoiseTexture,
-				uColor: this.Uniforms.uColor
-			},
-			vertexShader: FireFlyShader.vertex,
-			fragmentShader: FireFlyShader.fragment
-		});
+		this.fireflyMaterial = new FireFlyMaterial();
 
 		// Create a firefly object using instanced rendering
 		this.fireflyCount = this.groupCount * this.firefliesPerGroup; // Calculate total firefly count
 		this.fireflyParticles = new InstancedMesh(
 			fireflyGeometry,
-			fireflyMaterial,
+			this.fireflyMaterial,
 			this.fireflyCount
 		);
 
@@ -149,8 +138,9 @@ export class FireFlies {
 	 * Updates the uniforms each frame.
 	 * @param uTime The elapsed time since the last frame.
 	 */
-	update(uTime: number) {
-		this.Uniforms.uTime.value += uTime; // Increment time uniform for animations
+	update(delta: number) {
+		this.Uniforms.uTime.value += delta;
+		this.fireflyMaterial.updateTime(this.Uniforms.uTime.value);
 	}
 
 	/**
