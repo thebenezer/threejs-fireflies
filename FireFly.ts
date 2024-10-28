@@ -13,7 +13,7 @@ import {
 } from 'three';
 
 import Gl from '@/Gl';
-import FireFlyShader from '@/shaders/FireFlyShader';
+import FireFlyMaterial from './FireFlyMaterial';
 
 /**
  * This FireFlies class generates firefly particles using instanced rendering.
