@@ -1,7 +1,7 @@
 # Three.js Fireflies Material Component and 
 Creating fireflies in three.js. FireFly Shader. FireFly Material.
 
-[⚡️Demo Link](http://yourdemo.link) 
+[⚡️Demo Link](https://fireflies-demo.vercel.app/) 
 
 This project contains two main components for creating a firefly effect in a Three.js scene: `FireFlyMaterial` and `FireFlies`. You can use these components independently to customize your firefly effects.
 
